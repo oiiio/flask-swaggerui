@@ -23,7 +23,7 @@ def render_swaggerui(swagger_spec_path, static_prefix="/swagger-ui-static",
 
     config = {}
     config.update(SWAGGERUI_DEFAULTS)
-    config.update(current_app.config.get_namespace('SWAGGERUI_'))
+    config.update(current_app.config.get_namespace('SWAGGERUI_', lowercase=False))
 
     for n, v in config.items():
         if isinstance(v, bool):

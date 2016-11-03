@@ -33,12 +33,29 @@
 
   <script type="text/javascript">
     $(function () {
-      var enableApiAuth = {{ api_auth }};
+
+      function arrayFrom(configString) {
+        return (configString !== "") ? configString.split('|') : [];
+      }
+      function stringOrNullFrom(configString) {
+        return (configString !== "null") ? configString : null;
+      }
+
+      window.swaggerConfig = {
+        rootUrl: "{{ swagger_spec_path|safe }}",
+        customScripts: arrayFrom('{{custom_scripts}}'),
+        supportedSubmitMethods: arrayFrom('%(SupportedSubmitMethods)'),
+        apiKeyName: '{{ api_key_authorization_header }}',
+        apiKeyIn: '{{ api_key_authorization_location }}',
+        apiKeyPrefix: '{{ api_key_authorization_prefix }}',
+        apiKeyDefName: '{{ api_key_security_definition_name }}'
+      }
+
       var url = window.location.search.match(/url=([^&]+)/);
       if (url && url.length > 1) {
         url = decodeURIComponent(url[1]);
       } else {
-        url = "{{ swagger_spec_path|safe }}";
+        url = swaggerConfig.rootUrl;
       }
 
       hljs.configure({
@@ -69,9 +86,12 @@
             window.SwaggerTranslator.translate();
           }
 
-          if (enableApiAuth) {
-            addApiKeyAuthorization();
-          }
+          addApiKeyAuthorization();
+          window.swaggerApi = swaggerApi;
+          _.each(swaggerConfig.customScripts, function (script) {
+            $.getScript(script);
+          });
+
         },
         onFailure: function(data) {
           log("Unable to Load SwaggerUI");
@@ -83,19 +103,20 @@
         showRequestHeaders: false
       });
 
-      function addApiKeyAuthorization(){
-        var key = encodeURIComponent($('#input_apiKey')[0].value);
+
+      function addApiKeyAuthorization() {
+        var key = swaggerConfig.apiKeyPrefix + $('#input_apiKey')[0].value;
+        log("key: " + key);
         if(key && key.trim() != "") {
-            var apiKeyAuth = new SwaggerClient.ApiKeyAuthorization("{{ api_key_authorization_header }}", "{{ api_key_authorization_prefix }}" + key, "{{ api_key_authorization_location }}");
-            window.swaggerUi.api.clientAuthorizations.add("{{ api_key_security_definition_name }}", apiKeyAuth);
+            if (swaggerConfig.apiKeyIn === "query") {
+                key = encodeURIComponent(key);
+            }
+            var apiKeyAuth = new SwaggerClient.ApiKeyAuthorization(swaggerConfig.apiKeyName, key, swaggerConfig.apiKeyIn);
+            window.swaggerUi.api.clientAuthorizations.add(swaggerConfig.apiKeyDefName, apiKeyAuth);
             log("added key " + key);
         }
       }
-
-      if (enableApiAuth) {
-          var apiKey = "{{ api_auth_key }}";
-          $('#input_apiKey').val(apiKey);
-      }
+      $('#input_apiKey').change(addApiKeyAuthorization);
 
       window.swaggerUi.load();
 
@@ -114,7 +135,8 @@
     <a id="logo" href="http://swagger.io"><img class="logo__img" alt="swagger" height="30" width="30" src="{{static_prefix}}/images/logo_small.png" /><span class="logo__title">swagger</span></a>
     <form id='api_selector'>
       <div class='input'><input placeholder="http://example.com/api" id="input_baseUrl" name="baseUrl" type="text"/></div>
-      <div id='auth_container'></div>
+      <div class='input'><input placeholder="api_key" id="input_apiKey" name="apiKey" type="text"/></div>
+{#      <div id='auth_container'></div>#}
       <div class='input'><a id="explore" class="header__btn" href="#" data-sw-translate>Explore</a></div>
     </form>
   </div>
